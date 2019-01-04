@@ -7,32 +7,32 @@ import (
 type NES struct {
 	CPU *cpu
 	PPU *ppu
-	MM  *mm
+	APU *apu
 	MMC mmc
 	ROM *rom
 }
 
-func NewNES() *NES {
-	mm := &mm{}
-	rom := &rom{}
-	ppu := &ppu{
-		rom: rom,
+func NewNES(file string) (*NES, error) {
+	n := &NES{}
+	r := &rom{}
+	p := &ppu{
+		rom: r,
 	}
-	apu := &apu{}
-	mmc := &mmc1{
-		ppu: ppu,
-		apu: apu,
-		mm:  mm,
-		rom: rom,
+	a := &apu{}
+	err := r.Load(file)
+	if err != nil {
+		return nil, err
 	}
-	return &NES{
-		CPU: &cpu{
-			MMC: mmc,
-		},
-		PPU: ppu,
-		MM:  mm,
-		ROM: rom,
+	n.ROM = r
+	n.PPU = p
+	n.APU = a
+	n.MMC = NewMMC(r.Header.MapperNum, r)
+	n.CPU = &cpu{
+		MMC: n.MMC,
+		PPU: n.PPU,
+		APU: n.APU,
 	}
+	return n, nil
 }
 
 func (n *NES) Run() {
@@ -41,10 +41,6 @@ func (n *NES) Run() {
 		n.CPU.Tick()
 		time.Sleep(12 * time.Millisecond)
 	}
-}
-
-func (n *NES) Load(file string) error {
-	return n.ROM.Load(file)
 }
 
 func (n *NES) PowerOn() {

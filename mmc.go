@@ -1,8 +1,14 @@
 package main
 
 type mmc interface {
-	GetAddress(uint16) uint16
 	Get(uint16) byte
-	SetAddress(uint16, uint16)
 	Set(uint16, byte)
+}
+
+func NewMMC(mapper_num int, rom *rom) mmc {
+	switch mapper_num {
+	case 1:
+		return NewMMC1(rom)
+	}
+	return NewMMC0(rom)
 }

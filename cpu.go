@@ -1,9 +1,38 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 const CPUFrequency = 1789773
 const CPUStackStart = 0x0100
+
+const (
+	AddressRAM             = 0x0000
+	AddressMirror1         = 0x0800
+	AddressMirror2         = 0x1000
+	AddressMirror3         = 0x1800
+	AddressPPUCtrl         = 0x2000
+	AddressPPUMask         = 0x2001
+	AddressPPUStatus       = 0x2002
+	AddressOAMAddr         = 0x2003
+	AddressOAMData         = 0x2004
+	AddressPPUScroll       = 0x2005
+	AddressPPUAddr         = 0x2006
+	AddressPPUVRAM         = 0x2007
+	AddressAPUPulse1       = 0x4000
+	AddressAPUPulse2       = 0x4004
+	AddressAPUTriangle     = 0x4008
+	AddressAPUNoise        = 0x400C
+	AddressAPUDMC          = 0x4010
+	AddressOAMDMA          = 0x4014
+	AddressAPUStatus       = 0x4015
+	AddressJoy1            = 0x4016
+	AddressAPUFrameCounter = 0x4017
+	AddressJoy2            = 0x4017
+	AddressAPUTest         = 0x4018
+)
 
 // interrupt types
 const (
@@ -70,48 +99,6 @@ var instruction_sizes = [256]int{
 	2, 2, 0, 0, 2, 2, 2, 0, 1, 3, 1, 0, 3, 3, 3, 0,
 	2, 2, 0, 0, 2, 2, 2, 0, 1, 2, 1, 0, 3, 3, 3, 0,
 	2, 2, 0, 0, 2, 2, 2, 0, 1, 3, 1, 0, 3, 3, 3, 0,
-}
-
-// instruction_cycles indicates the number of cycles used by each instruction,
-// not including conditional cycles
-var instruction_cycles = [256]int{
-	7, 6, 2, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6,
-	2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
-	6, 6, 2, 8, 3, 3, 5, 5, 4, 2, 2, 2, 4, 4, 6, 6,
-	2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
-	6, 6, 2, 8, 3, 3, 5, 5, 3, 2, 2, 2, 3, 4, 6, 6,
-	2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
-	6, 6, 2, 8, 3, 3, 5, 5, 4, 2, 2, 2, 5, 4, 6, 6,
-	2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
-	2, 6, 2, 6, 3, 3, 3, 3, 2, 2, 2, 2, 4, 4, 4, 4,
-	2, 6, 2, 6, 4, 4, 4, 4, 2, 5, 2, 5, 5, 5, 5, 5,
-	2, 6, 2, 6, 3, 3, 3, 3, 2, 2, 2, 2, 4, 4, 4, 4,
-	2, 5, 2, 5, 4, 4, 4, 4, 2, 4, 2, 4, 4, 4, 4, 4,
-	2, 6, 2, 8, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6,
-	2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
-	2, 6, 2, 8, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6,
-	2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
-}
-
-// instruction_page_cycles indicates the number of cycles used by each
-// instruction when a page is crossed
-var instruction_page_cycles = [256]int{
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0,
 }
 
 // instructionNames indicates the name of each instruction
@@ -199,37 +186,35 @@ var instructions = [256]func(*cpu, uint16, int){
 }
 
 type cpu struct {
-	A           byte
-	X           byte
-	Y           byte
-	S           byte
-	P           byte
-	PC          uint16
-	MMC         mmc
-	wait_cycles int
-	interrupt   int
+	A         byte
+	X         byte
+	Y         byte
+	S         byte
+	P         byte
+	PC        uint16
+	MMC       mmc
+	PPU       *ppu
+	APU       *apu
+	interrupt int
+
+	RAM [0x0800]byte
 }
 
 func (c *cpu) Tick() {
-	if c.wait_cycles > 0 {
-		c.wait_cycles--
-		return
-	}
-
 	switch c.interrupt {
 	case interruptNMI:
 		c.pushAddress(c.PC)
 		c.push(c.P)
 		c.setStatusFlag(FlagI, true)
 		c.setStatusFlag(FlagB, false)
-		c.PC = c.MMC.GetAddress(0xFFFA)
+		c.PC = c.getAddress(0xFFFA)
 	case interruptIRQ:
 		if !c.getStatusFlagBool(FlagI) {
 			c.pushAddress(c.PC)
 			c.push(c.P)
 			c.setStatusFlag(FlagI, true)
 			c.setStatusFlag(FlagB, false)
-			c.PC = c.MMC.GetAddress(0xFFFE)
+			c.PC = c.getAddress(0xFFFE)
 		}
 	case interruptBRK:
 		if !c.getStatusFlagBool(FlagI) {
@@ -238,30 +223,26 @@ func (c *cpu) Tick() {
 			c.pushAddress(c.PC)
 			c.push(c.P)
 			c.setStatusFlag(FlagI, true)
-			c.PC = c.MMC.GetAddress(0xFFFE)
+			c.PC = c.getAddress(0xFFFE)
 		}
-	}
-	if c.interrupt != interruptNone {
-		c.wait_cycles += 7
 	}
 	c.interrupt = interruptNone
 
-	opecode := c.MMC.Get(c.PC)
+	output := fmt.Sprintf("PC:%04x ", c.PC)
+
+	opecode := c.get(c.PC)
 	c.PC += 1
 
 	mode := instruction_modes[opecode]
 
 	var address uint16
-	page_crossed := false
 	switch mode {
 	case modeAbsolute:
-		address = c.MMC.GetAddress(c.PC)
+		address = c.getAddress(c.PC)
 	case modeAbsoluteX:
-		address = c.MMC.GetAddress(c.PC) + uint16(c.X)
-		page_crossed = pages_differ(address-uint16(c.X), address)
+		address = c.getAddress(c.PC) + uint16(c.X)
 	case modeAbsoluteY:
-		address = c.MMC.GetAddress(c.PC) + uint16(c.Y)
-		page_crossed = pages_differ(address-uint16(c.Y), address)
+		address = c.getAddress(c.PC) + uint16(c.Y)
 	case modeAccumulator:
 		address = 0
 	case modeImmediate:
@@ -269,35 +250,41 @@ func (c *cpu) Tick() {
 	case modeImplied:
 		address = 0
 	case modeIndexedIndirect:
-		address = c.MMC.GetAddress(uint16(c.MMC.Get(c.PC) + c.X))
+		address = c.getAddress(uint16(c.get(c.PC) + c.X))
 	case modeIndirect:
-		address = c.MMC.GetAddress(c.MMC.GetAddress(c.PC))
+		address = c.getAddress(c.getAddress(c.PC))
 	case modeIndirectIndexed:
-		address = c.MMC.GetAddress(uint16(c.MMC.Get(c.PC))) + uint16(c.Y)
-		page_crossed = pages_differ(address-uint16(c.Y), address)
+		address = c.getAddress(uint16(c.get(c.PC))) + uint16(c.Y)
 	case modeRelative:
-		offset := uint16(c.MMC.Get(c.PC))
+		offset := uint16(c.get(c.PC))
 		if offset < 0x80 {
-			address = c.PC + 2 + offset
+			address = c.PC + 1 + offset
 		} else {
-			address = c.PC + 2 + offset - 0x100
+			address = c.PC + 1 + offset - 0x100
 		}
 	case modeZeroPage:
-		address = uint16(c.MMC.Get(c.PC))
+		address = uint16(c.get(c.PC))
 	case modeZeroPageX:
-		address = uint16(c.MMC.Get(c.PC) + c.X)
+		address = uint16(c.get(c.PC) + c.X)
 	case modeZeroPageY:
-		address = uint16(c.MMC.Get(c.PC) + c.Y)
+		address = uint16(c.get(c.PC) + c.Y)
 	}
 
 	c.PC += uint16(instruction_sizes[opecode] - 1)
-	c.wait_cycles += instruction_cycles[opecode]
-	if page_crossed {
-		c.wait_cycles += instruction_page_cycles[opecode]
-	}
 
 	instructions[opecode](c, address, mode)
-	fmt.Println("PC:", c.PC, " OP:", instruction_names[opecode])
+	output += fmt.Sprintf(
+		"OP:%s(%04x) %04x A:%02x X:%02x Y:%02x P:%02x SP:%02x",
+		instruction_names[opecode],
+		opecode,
+		address,
+		c.A,
+		c.X,
+		c.Y,
+		c.P,
+		c.S,
+	)
+	log.Println(output)
 }
 
 func (c *cpu) PowerOn() {
@@ -306,41 +293,123 @@ func (c *cpu) PowerOn() {
 	c.Y = 0
 	c.S = 0xFD
 	c.P = FlagZ | FlagR
-	c.PC = c.MMC.GetAddress(0xFFFC)
-	//c.PC = 0x8000
-	c.wait_cycles = 0
-	// TODO: do not relay on mmc1
-	c.MMC.Set(MMC1AddressAPUFrameCounter, 0x00)
-	c.MMC.Set(MMC1AddressAPUStatus, 0x00)
-	c.MMC.Set(MMC1AddressAPUPulse1, 0x00)
+	c.PC = c.getAddress(0xFFFC)
+	c.PC = 0xC000
+	c.set(AddressAPUFrameCounter, 0x00)
+	c.set(AddressAPUStatus, 0x00)
+	c.set(AddressAPUPulse1, 0x00)
 }
 
 func (c *cpu) Reset() {
 	c.S -= 0x03
 	c.P |= FlagI
-	c.PC = c.MMC.GetAddress(0xFFFC)
-	// TODO: do not relay on mmc1
-	c.MMC.Set(MMC1AddressAPUStatus, 0x00)
+	c.PC = c.getAddress(0xFFFC)
+	if c.PC == 0 {
+
+	}
+	c.set(AddressAPUStatus, 0x00)
+}
+
+func (c *cpu) get(address uint16) byte {
+	switch {
+	case address < AddressMirror1:
+		return c.RAM[address]
+	case address < AddressMirror2:
+		return c.RAM[address-AddressMirror1]
+	case address < AddressMirror3:
+		return c.RAM[address-AddressMirror2]
+	case address == AddressPPUCtrl:
+		return c.PPU.Ctrl
+	case address == AddressPPUMask:
+		return c.PPU.Mask
+	case address == AddressPPUStatus:
+		return c.PPU.Status
+	case address == AddressOAMAddr:
+		return c.PPU.OAM_addr
+	case address == AddressOAMData:
+		return c.PPU.GetOAM()
+	case address == AddressPPUScroll:
+		return c.PPU.Scroll
+	case address == AddressPPUAddr:
+		return c.PPU.Addr
+	case address == AddressPPUVRAM:
+		return c.PPU.Get()
+	case address == AddressOAMDMA:
+		return c.PPU.OAM_DMA
+	case address == AddressAPUStatus:
+		return c.APU.Status
+	case address == AddressJoy1:
+		return byte(0)
+	case address == AddressAPUFrameCounter:
+		return c.APU.FrameCounter
+	}
+	return c.MMC.Get(address)
+}
+
+func (c *cpu) getAddress(address uint16) uint16 {
+	return uint16(uint16(c.get(address)) + uint16(c.get(address+1))<<8)
+}
+
+func (c *cpu) set(address uint16, value byte) {
+	switch {
+	case address < AddressMirror1:
+		c.RAM[address] = value
+	case address < AddressMirror2:
+		c.RAM[address-AddressMirror1] = value
+	case address < AddressMirror3:
+		c.RAM[address-AddressMirror2] = value
+	case address == AddressPPUCtrl:
+		c.PPU.Ctrl = value
+	case address == AddressPPUMask:
+		c.PPU.Mask = value
+	case address == AddressPPUStatus:
+		c.PPU.Status = value
+	case address == AddressOAMAddr:
+		c.PPU.OAM_addr = value
+	case address == AddressOAMData:
+		c.PPU.SetOAM(value)
+	case address == AddressPPUScroll:
+		c.PPU.Scroll = value
+	case address == AddressPPUAddr:
+		c.PPU.Addr = value
+	case address == AddressPPUVRAM:
+		c.PPU.Set(value)
+	case address == AddressOAMDMA:
+		c.PPU.OAM_DMA = value
+	case address == AddressAPUStatus:
+		c.APU.Status = value
+	case address == AddressJoy1:
+		// nop
+	case address == AddressAPUFrameCounter:
+		c.APU.FrameCounter = value
+	default:
+		c.MMC.Set(address, value)
+	}
+}
+
+func (c *cpu) setAddress(address uint16, value uint16) {
+	c.set(address, uint8(value&0xFF))
+	c.set(address+1, uint8(value>>8))
 }
 
 func (c *cpu) push(value uint8) {
-	c.MMC.Set(CPUStackStart+uint16(c.S), value)
+	c.set(CPUStackStart+uint16(c.S), value)
 	c.S--
 }
 
 func (c *cpu) pushAddress(value uint16) {
-	c.MMC.SetAddress(CPUStackStart+uint16(c.S)-1, value)
+	c.setAddress(CPUStackStart+uint16(c.S)-1, value)
 	c.S -= 2
 }
 
 func (c *cpu) pop() uint8 {
 	c.S++
-	return c.MMC.Get(CPUStackStart + uint16(c.S))
+	return c.get(CPUStackStart + uint16(c.S))
 }
 
 func (c *cpu) popAddress() uint16 {
 	c.S++
-	v := c.MMC.GetAddress(CPUStackStart + uint16(c.S))
+	v := c.getAddress(CPUStackStart + uint16(c.S))
 	c.S++
 	return v
 }
@@ -370,25 +439,13 @@ func (c *cpu) setZN(value byte) {
 	c.setStatusFlag(FlagZ, value == 0)
 }
 
-func (c *cpu) add_branch_wait(addr uint16) {
-	c.PC++
-	if pages_differ(c.PC, addr) {
-		c.PC++
-	}
-}
-
-func pages_differ(a uint16, b uint16) bool {
-	return a&0xFF00 != b&0xFF00
-}
-
 func is_negative(a byte) bool {
 	return a&0x80 != 0
 }
 
-// TODO: メンバにした方がいい
 func adc(c *cpu, addr uint16, mode int) {
 	v1 := c.A
-	v2 := c.MMC.Get(addr)
+	v2 := c.get(addr)
 	v3 := c.getStatusFlagByte(FlagC)
 	c.A = v1 + v2 + v3
 
@@ -407,7 +464,7 @@ func adc(c *cpu, addr uint16, mode int) {
 	}
 }
 func and(c *cpu, addr uint16, mode int) {
-	c.A &= c.MMC.Get(addr)
+	c.A &= c.get(addr)
 	c.setZN(c.A)
 }
 func asl(c *cpu, addr uint16, mode int) {
@@ -415,7 +472,7 @@ func asl(c *cpu, addr uint16, mode int) {
 	if mode == modeAccumulator {
 		v = c.A
 	} else {
-		v = c.MMC.Get(addr)
+		v = c.get(addr)
 	}
 
 	c.setStatusFlag(FlagC, is_negative(v))
@@ -425,7 +482,7 @@ func asl(c *cpu, addr uint16, mode int) {
 	if mode == modeAccumulator {
 		c.A = v
 	} else {
-		c.MMC.Set(addr, v)
+		c.set(addr, v)
 	}
 
 	c.setZN(v)
@@ -433,23 +490,20 @@ func asl(c *cpu, addr uint16, mode int) {
 func bcc(c *cpu, addr uint16, mode int) {
 	if !c.getStatusFlagBool(FlagC) {
 		c.PC = addr
-		c.add_branch_wait(addr)
 	}
 }
 func bcs(c *cpu, addr uint16, mode int) {
 	if c.getStatusFlagBool(FlagC) {
 		c.PC = addr
-		c.add_branch_wait(addr)
 	}
 }
 func beq(c *cpu, addr uint16, mode int) {
 	if c.getStatusFlagBool(FlagZ) {
 		c.PC = addr
-		c.add_branch_wait(addr)
 	}
 }
 func bit(c *cpu, addr uint16, mode int) {
-	v := c.MMC.Get(addr)
+	v := c.get(addr)
 	c.setStatusFlag(FlagV, v>>6&1 == 1)
 	c.setStatusFlag(FlagN, is_negative(v))
 	c.setStatusFlag(FlagZ, v&c.A == 0)
@@ -457,19 +511,16 @@ func bit(c *cpu, addr uint16, mode int) {
 func bmi(c *cpu, addr uint16, mode int) {
 	if c.getStatusFlagBool(FlagN) {
 		c.PC = addr
-		c.add_branch_wait(addr)
 	}
 }
 func bne(c *cpu, addr uint16, mode int) {
 	if !c.getStatusFlagBool(FlagZ) {
 		c.PC = addr
-		c.add_branch_wait(addr)
 	}
 }
 func bpl(c *cpu, addr uint16, mode int) {
 	if !c.getStatusFlagBool(FlagN) {
 		c.PC = addr
-		c.add_branch_wait(addr)
 	}
 }
 func brk(c *cpu, addr uint16, mode int) {
@@ -478,13 +529,11 @@ func brk(c *cpu, addr uint16, mode int) {
 func bvc(c *cpu, addr uint16, mode int) {
 	if !c.getStatusFlagBool(FlagV) {
 		c.PC = addr
-		c.add_branch_wait(addr)
 	}
 }
 func bvs(c *cpu, addr uint16, mode int) {
 	if c.getStatusFlagBool(FlagV) {
 		c.PC = addr
-		c.add_branch_wait(addr)
 	}
 }
 func clc(c *cpu, addr uint16, mode int) {
@@ -501,29 +550,29 @@ func clv(c *cpu, addr uint16, mode int) {
 }
 func cmp(c *cpu, addr uint16, mode int) {
 	v1 := c.A
-	v2 := c.MMC.Get(addr)
+	v2 := c.get(addr)
 	v3 := v1 - v2
 	c.setZN(v3)
 	c.setStatusFlag(FlagC, !is_negative(v3))
 }
 func cpx(c *cpu, addr uint16, mode int) {
 	v1 := c.X
-	v2 := c.MMC.Get(addr)
+	v2 := c.get(addr)
 	v3 := v1 - v2
 	c.setZN(v3)
 	c.setStatusFlag(FlagC, !is_negative(v3))
 }
 func cpy(c *cpu, addr uint16, mode int) {
 	v1 := c.Y
-	v2 := c.MMC.Get(addr)
+	v2 := c.get(addr)
 	v3 := v1 - v2
 	c.setZN(v3)
 	c.setStatusFlag(FlagC, !is_negative(v3))
 }
 func dec(c *cpu, addr uint16, mode int) {
-	v := c.MMC.Get(addr) - 1
+	v := c.get(addr) - 1
 	c.setZN(v)
-	c.MMC.Set(addr, v)
+	c.set(addr, v)
 }
 func dex(c *cpu, addr uint16, mode int) {
 	v := c.X - 1
@@ -537,15 +586,15 @@ func dey(c *cpu, addr uint16, mode int) {
 }
 func eor(c *cpu, addr uint16, mode int) {
 	v1 := c.A
-	v2 := c.MMC.Get(addr)
+	v2 := c.get(addr)
 	v3 := v1 ^ v2
 	c.setZN(v3)
 	c.A = v3
 }
 func inc(c *cpu, addr uint16, mode int) {
-	v := c.MMC.Get(addr) + 1
+	v := c.get(addr) + 1
 	c.setZN(v)
-	c.MMC.Set(addr, v)
+	c.set(addr, v)
 }
 func inx(c *cpu, addr uint16, mode int) {
 	v := c.X + 1
@@ -565,17 +614,17 @@ func jsr(c *cpu, addr uint16, mode int) {
 	c.PC = addr
 }
 func lda(c *cpu, addr uint16, mode int) {
-	v := c.MMC.Get(addr)
+	v := c.get(addr)
 	c.setZN(v)
 	c.A = v
 }
 func ldx(c *cpu, addr uint16, mode int) {
-	v := c.MMC.Get(addr)
+	v := c.get(addr)
 	c.setZN(v)
 	c.X = v
 }
 func ldy(c *cpu, addr uint16, mode int) {
-	v := c.MMC.Get(addr)
+	v := c.get(addr)
 	c.setZN(v)
 	c.Y = v
 }
@@ -584,7 +633,7 @@ func lsr(c *cpu, addr uint16, mode int) {
 	if mode == modeAccumulator {
 		v = c.A
 	} else {
-		v = c.MMC.Get(addr)
+		v = c.get(addr)
 	}
 
 	c.setStatusFlag(FlagC, v&1 == 1)
@@ -593,7 +642,7 @@ func lsr(c *cpu, addr uint16, mode int) {
 	if mode == modeAccumulator {
 		c.A = v
 	} else {
-		c.MMC.Set(addr, v)
+		c.set(addr, v)
 	}
 	c.setZN(v)
 }
@@ -602,7 +651,7 @@ func nop(c *cpu, addr uint16, mode int) {
 }
 func ora(c *cpu, addr uint16, mode int) {
 	v1 := c.A
-	v2 := c.MMC.Get(addr)
+	v2 := c.get(addr)
 	v3 := v1 | v2
 	c.setZN(v3)
 	c.A = v3
@@ -626,7 +675,7 @@ func rol(c *cpu, addr uint16, mode int) {
 	if mode == modeAccumulator {
 		v = c.A
 	} else {
-		v = c.MMC.Get(addr)
+		v = c.get(addr)
 	}
 
 	carry := v & 0x80 >> 7
@@ -639,7 +688,7 @@ func rol(c *cpu, addr uint16, mode int) {
 	if mode == modeAccumulator {
 		c.A = v
 	} else {
-		c.MMC.Set(addr, v)
+		c.set(addr, v)
 	}
 }
 func ror(c *cpu, addr uint16, mode int) {
@@ -647,7 +696,7 @@ func ror(c *cpu, addr uint16, mode int) {
 	if mode == modeAccumulator {
 		v = c.A
 	} else {
-		v = c.MMC.Get(addr)
+		v = c.get(addr)
 	}
 
 	carry := v & 1
@@ -660,7 +709,7 @@ func ror(c *cpu, addr uint16, mode int) {
 	if mode == modeAccumulator {
 		c.A = v
 	} else {
-		c.MMC.Set(addr, v)
+		c.set(addr, v)
 	}
 }
 func rti(c *cpu, addr uint16, mode int) {
@@ -672,7 +721,7 @@ func rts(c *cpu, addr uint16, mode int) {
 }
 func sbc(c *cpu, addr uint16, mode int) {
 	v1 := c.A
-	v2 := c.MMC.Get(addr)
+	v2 := c.get(addr)
 	v3 := 1 - c.getStatusFlagByte(FlagC)
 	c.A = v1 - v2 - v3
 
@@ -700,13 +749,13 @@ func sei(c *cpu, addr uint16, mode int) {
 	c.setStatusFlag(FlagI, true)
 }
 func sta(c *cpu, addr uint16, mode int) {
-	c.MMC.Set(addr, c.A)
+	c.set(addr, c.A)
 }
 func stx(c *cpu, addr uint16, mode int) {
-	c.MMC.Set(addr, c.X)
+	c.set(addr, c.X)
 }
 func sty(c *cpu, addr uint16, mode int) {
-	c.MMC.Set(addr, c.Y)
+	c.set(addr, c.Y)
 }
 func tax(c *cpu, addr uint16, mode int) {
 	c.X = c.A
