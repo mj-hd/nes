@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 )
 
 const CPUFrequency = 1789773
@@ -20,7 +19,7 @@ const (
 	AddressOAMData         = 0x2004
 	AddressPPUScroll       = 0x2005
 	AddressPPUAddr         = 0x2006
-	AddressPPUVRAM         = 0x2007
+	AddressPPUData         = 0x2007
 	AddressAPUPulse1       = 0x4000
 	AddressAPUPulse2       = 0x4004
 	AddressAPUTriangle     = 0x4008
@@ -196,11 +195,13 @@ type cpu struct {
 	PPU       *ppu
 	APU       *apu
 	interrupt int
+	Cycle     int
 
 	RAM [0x0800]byte
 }
 
 func (c *cpu) Tick() {
+	c.Cycle++
 	switch c.interrupt {
 	case interruptNMI:
 		c.pushAddress(c.PC)
@@ -284,7 +285,7 @@ func (c *cpu) Tick() {
 		c.P,
 		c.S,
 	)
-	log.Println(output)
+	//log.Println(output)
 }
 
 func (c *cpu) PowerOn() {
@@ -323,23 +324,23 @@ func (c *cpu) get(address uint16) byte {
 	case address == AddressPPUMask:
 		return c.PPU.Mask
 	case address == AddressPPUStatus:
-		return c.PPU.Status
+		return c.PPU.GetStatus()
 	case address == AddressOAMAddr:
-		return c.PPU.OAM_addr
+		return c.PPU.OAM_Addr
 	case address == AddressOAMData:
 		return c.PPU.GetOAM()
 	case address == AddressPPUScroll:
-		return c.PPU.Scroll
+		return 0
 	case address == AddressPPUAddr:
-		return c.PPU.Addr
-	case address == AddressPPUVRAM:
-		return c.PPU.Get()
+		return 0
+	case address == AddressPPUData:
+		return c.PPU.GetData()
 	case address == AddressOAMDMA:
-		return c.PPU.OAM_DMA
+		return 0
 	case address == AddressAPUStatus:
 		return c.APU.Status
 	case address == AddressJoy1:
-		return byte(0)
+		return 0
 	case address == AddressAPUFrameCounter:
 		return c.APU.FrameCounter
 	}
@@ -363,19 +364,18 @@ func (c *cpu) set(address uint16, value byte) {
 	case address == AddressPPUMask:
 		c.PPU.Mask = value
 	case address == AddressPPUStatus:
-		c.PPU.Status = value
 	case address == AddressOAMAddr:
-		c.PPU.OAM_addr = value
+		c.PPU.OAM_Addr = value
 	case address == AddressOAMData:
 		c.PPU.SetOAM(value)
 	case address == AddressPPUScroll:
-		c.PPU.Scroll = value
+		c.PPU.SetScroll(value)
 	case address == AddressPPUAddr:
-		c.PPU.Addr = value
-	case address == AddressPPUVRAM:
-		c.PPU.Set(value)
+		c.PPU.SetAddr(value)
+	case address == AddressPPUData:
+		c.PPU.SetData(value)
 	case address == AddressOAMDMA:
-		c.PPU.OAM_DMA = value
+		c.PPU.SetDMA(value)
 	case address == AddressAPUStatus:
 		c.APU.Status = value
 	case address == AddressJoy1:

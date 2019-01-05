@@ -109,14 +109,28 @@ func (r *rom) Load(file string) error {
 	return nil
 }
 
-func (r *rom) Get(addr uint16) uint8 {
+func (r *rom) GetCHR(addr uint16) byte {
+	if addr >= uint16(len(r.CHR)) {
+		return 0
+	}
+	return r.CHR[addr]
+}
+
+func (r *rom) SetCHR(addr uint16, value byte) {
+	if addr >= uint16(len(r.CHR)) {
+		return
+	}
+	r.CHR[addr] = value
+}
+
+func (r *rom) GetPRG(addr uint16) byte {
 	if addr >= uint16(len(r.PRG)) {
 		return 0
 	}
 	return r.PRG[addr]
 }
 
-func (r *rom) Set(addr uint16, value uint8) {
+func (r *rom) SetPRG(addr uint16, value byte) {
 	if addr >= uint16(len(r.PRG)) {
 		return
 	}

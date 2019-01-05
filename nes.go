@@ -1,9 +1,5 @@
 package main
 
-import (
-	"time"
-)
-
 type NES struct {
 	CPU *cpu
 	PPU *ppu
@@ -12,21 +8,17 @@ type NES struct {
 	ROM *rom
 }
 
-func NewNES(file string) (*NES, error) {
+func NewNES(file string, renderer Renderer) (*NES, error) {
 	n := &NES{}
 	r := &rom{}
-	p := &ppu{
-		rom: r,
-	}
-	a := &apu{}
 	err := r.Load(file)
 	if err != nil {
 		return nil, err
 	}
 	n.ROM = r
-	n.PPU = p
-	n.APU = a
+	n.APU = &apu{}
 	n.MMC = NewMMC(r.Header.MapperNum, r)
+	n.PPU = NewPPU(n.MMC, renderer)
 	n.CPU = &cpu{
 		MMC: n.MMC,
 		PPU: n.PPU,
@@ -35,12 +27,12 @@ func NewNES(file string) (*NES, error) {
 	return n, nil
 }
 
-func (n *NES) Run() {
-	for {
-		n.PPU.Tick()
-		n.CPU.Tick()
-		time.Sleep(12 * time.Millisecond)
-	}
+func (n *NES) Tick() {
+	n.CPU.Tick()
+	n.PPU.Tick()
+	n.PPU.Tick()
+	n.PPU.Tick()
+	//time.Sleep(1 * time.Millisecond)
 }
 
 func (n *NES) PowerOn() {
