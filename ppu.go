@@ -2,6 +2,7 @@ package main
 
 import (
 	"image/color"
+	"log"
 )
 
 const (
@@ -123,8 +124,12 @@ func (p *ppu) Tick() {
 		p.Cycle = 0
 		p.Line++
 		if p.Line > PPUHeight {
+			p.vblank = false
 			p.Line = 0
 			p.renderer.Render()
+		} else if p.Line > PPUVisibleHeight {
+			p.vblank = true
+			// TODO: fire nmi interruption
 		}
 	}
 	if p.Cycle%8 == 0 {
@@ -132,7 +137,7 @@ func (p *ppu) Tick() {
 			p.drawBG(p.Cycle, p.Line)
 		}
 	}
-	//log.Printf("PPU Cycle:%d Line:%d\n", p.Cycle, p.Line)
+	log.Printf("PPU Cycle:%d Line:%d\n", p.Cycle, p.Line)
 }
 
 func (p *ppu) drawBG(cycle, line int) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 )
 
 const CPUFrequency = 1789773
@@ -285,7 +286,7 @@ func (c *cpu) Tick() {
 		c.P,
 		c.S,
 	)
-	//log.Println(output)
+	log.Println(output)
 }
 
 func (c *cpu) PowerOn() {
@@ -295,7 +296,6 @@ func (c *cpu) PowerOn() {
 	c.S = 0xFD
 	c.P = FlagZ | FlagR
 	c.PC = c.getAddress(0xFFFC)
-	c.PC = 0xC000
 	c.set(AddressAPUFrameCounter, 0x00)
 	c.set(AddressAPUStatus, 0x00)
 	c.set(AddressAPUPulse1, 0x00)

@@ -36,6 +36,21 @@ func main() {
 		panic(err)
 	}
 
+	//fmt.Println("======CPU=======")
+	//for i := uint16(0); i < 0xFFFF; i++ {
+	//	if i%16 == 0 {
+	//		fmt.Printf("\n%04x: ", i)
+	//	}
+	//	fmt.Printf("%04x ", nes.CPU.get(i))
+	//}
+	//fmt.Println("======PPU=======")
+	//for i := uint16(0); i < 0x4000; i++ {
+	//	if i%16 == 0 {
+	//		fmt.Printf("\n%04x: ", i)
+	//	}
+	//	fmt.Printf("%04x ", nes.PPU.get(i))
+	//}
+
 	nes.PowerOn()
 
 	for !window.ShouldClose() {
