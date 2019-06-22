@@ -2,7 +2,6 @@ package main
 
 import (
 	"image/color"
-	"log"
 )
 
 const (
@@ -65,7 +64,7 @@ const (
 	PPUVisibleHeight = 240
 )
 
-var palette = []color.RGBA{
+var colors = []color.RGBA{
 	{0x80, 0x80, 0x80, 0xFF}, {0x00, 0x3D, 0xA6, 0xFF}, {0x00, 0x12, 0xB0, 0xFF}, {0x44, 0x00, 0x96, 0xFF},
 	{0xA1, 0x00, 0x5E, 0xFF}, {0xC7, 0x00, 0x28, 0xFF}, {0xBA, 0x06, 0x00, 0xFF}, {0x8C, 0x17, 0x00, 0xFF},
 	{0x5C, 0x2F, 0x00, 0xFF}, {0x10, 0x45, 0x00, 0xFF}, {0x05, 0x4A, 0x00, 0xFF}, {0x00, 0x47, 0x2E, 0xFF},
@@ -106,7 +105,7 @@ type ppu struct {
 
 func NewPPU(mmc mmc, renderer Renderer) *ppu {
 	return &ppu{
-		buffer:   make([]byte, 2),
+		buffer:   make([]byte, 0, 2),
 		mmc:      mmc,
 		renderer: renderer,
 	}
@@ -137,16 +136,16 @@ func (p *ppu) Tick() {
 			p.drawBG(p.Cycle, p.Line)
 		}
 	}
-	log.Printf("PPU Cycle:%d Line:%d\n", p.Cycle, p.Line)
+	//log.Printf("PPU Cycle:%d Line:%d\n", p.Cycle, p.Line)
 }
 
 func (p *ppu) drawBG(cycle, line int) {
 	x := cycle
 	y := line
-	if x > PPUVisibleWidth {
+	if x >= PPUVisibleWidth {
 		return
 	}
-	if y > PPUVisibleHeight {
+	if y >= PPUVisibleHeight {
 		return
 	}
 	tileX, tileY := x/8, y/8
@@ -158,7 +157,7 @@ func (p *ppu) drawBG(cycle, line int) {
 	pixels := p.toPixels(char, colors)
 	for i := 0; i < len(pixels); i++ {
 		for j := 0; j < len(pixels[i]); j++ {
-			p.renderer.SetPixel(x+j, y+i, pixels[i][j])
+			p.renderer.SetPixel(tileX*8+j, tileY*8+i, pixels[i][j])
 		}
 	}
 }
@@ -169,7 +168,7 @@ func (p *ppu) toPixels(char []byte, colors []color.RGBA) [8][8]color.RGBA {
 		charLow := char[y]
 		charHi := char[y+8]
 		for x := 0; x < 8; x++ {
-			colorNum := ((charHi >> uint(7-x)) << 1) | (charLow >> uint(7-x))
+			colorNum := (((charHi >> uint(7-x)) & 1) << 1) | ((charLow >> uint(7-x)) & 1)
 			res[y][x] = colors[colorNum]
 		}
 	}
@@ -179,19 +178,19 @@ func (p *ppu) toPixels(char []byte, colors []color.RGBA) [8][8]color.RGBA {
 func (p *ppu) getColors(paletteNumber int, baseAddr uint16) []color.RGBA {
 	res := make([]color.RGBA, 0, 4)
 	for i := 0; i < 4; i++ {
-		colorNum := p.get(baseAddr + uint16(paletteNumber*4+1))
-		res = append(res, palette[int(colorNum)])
+		colorNum := p.get(baseAddr + uint16(paletteNumber*4+i))
+		res = append(res, colors[int(colorNum)])
 	}
 	return res
 }
 
 func (p *ppu) getTileCharNumber(tileX, tileY int) byte {
-	tileAddr := uint16((tileY*30 + tileX) + PPUAddressNameTable0)
+	tileAddr := uint16((tileY*32 + tileX) + PPUAddressNameTable0)
 	return p.get(tileAddr)
 }
 
 func (p *ppu) getPaletteNumber(attrX, attrY, tileX, tileY int) int {
-	attrAddr := uint16((attrY*15 + attrX) + PPUAddressAttrTable0)
+	attrAddr := uint16((attrY*16 + attrX) + PPUAddressAttrTable0)
 	attr := p.get(attrAddr)
 	index := 0
 	if tileX%2 == 1 {
@@ -277,14 +276,14 @@ func (p *ppu) SetOAM(v byte) {
 
 func (p *ppu) SetScroll(v byte) {
 	if len(p.buffer) == 2 {
-		p.buffer = p.buffer[:]
+		p.buffer = p.buffer[:0]
 	}
 	p.buffer = append(p.buffer, v)
 }
 
 func (p *ppu) SetAddr(v byte) {
-	if len(p.buffer) == 2 {
-		p.buffer = p.buffer[:]
+	if len(p.buffer) >= 2 {
+		p.buffer = p.buffer[:0]
 	}
 	p.buffer = append(p.buffer, v)
 }

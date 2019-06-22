@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	//"log"
 )
 
 const CPUFrequency = 1789773
@@ -286,7 +286,7 @@ func (c *cpu) Tick() {
 		c.P,
 		c.S,
 	)
-	log.Println(output)
+	//log.Println(output)
 }
 
 func (c *cpu) PowerOn() {

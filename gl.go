@@ -3,7 +3,6 @@ package main
 import (
 	"image"
 	"image/color"
-	"log"
 	"runtime"
 
 	"github.com/go-gl/gl/v2.1/gl"
@@ -32,6 +31,7 @@ func NewGLRenderer(window *glfw.Window) Renderer {
 	return &GLRenderer{
 		window: window,
 		image: &image.RGBA{
+
 			Pix: make([]uint8, 4*256*240), // TODO: remove magic number
 			Rect: image.Rectangle{
 				Min: image.Point{
@@ -47,7 +47,7 @@ func NewGLRenderer(window *glfw.Window) Renderer {
 }
 
 func (g *GLRenderer) SetPixel(x, y int, col color.RGBA) {
-	base := y*256 + x
+	base := y*256*4 + x*4
 	g.image.Pix[base] = col.R
 	g.image.Pix[base+1] = col.G
 	g.image.Pix[base+2] = col.B
@@ -95,5 +95,5 @@ func (g *GLRenderer) Render() {
 	gl.End()
 
 	gl.BindTexture(gl.TEXTURE_2D, 0)
-	log.Println("RENDERED!!")
+	g.window.SwapBuffers()
 }

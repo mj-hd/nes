@@ -55,7 +55,6 @@ func main() {
 
 	for !window.ShouldClose() {
 		nes.Tick()
-		window.SwapBuffers()
 		glfw.PollEvents()
 	}
 }
