@@ -2,6 +2,7 @@ package main
 
 import (
 	"image/color"
+	"log"
 )
 
 const (
@@ -40,24 +41,6 @@ const (
 )
 
 const (
-	PPUAddressPattern0        = 0x0000
-	PPUAddressPattern1        = 0x1000
-	PPUAddressNameTable0      = 0x2000
-	PPUAddressAttrTable0      = 0x23C0
-	PPUAddressNameTable1      = 0x2400
-	PPUAddressAttrTable1      = 0x27C0
-	PPUAddressNameTable2      = 0x2800
-	PPUAddressAttrTable2      = 0x2BC0
-	PPUAddressNameTable3      = 0x2C00
-	PPUAddressAttrTable3      = 0x2FC0
-	PPUAddressNameTableMirror = 0x3000
-	PPUAddressPaletteBG       = 0x3F00
-	PPUAddressPaletteSprite   = 0x3F10
-	PPUAddressPalletRAMMirror = 0x3F20
-	PPUAddressVRAM            = 0x2000
-)
-
-const (
 	PPUWidth         = 340
 	PPUHeight        = 261
 	PPUVisibleWidth  = 256
@@ -84,10 +67,8 @@ var colors = []color.RGBA{
 }
 
 type ppu struct {
-	Ctrl     byte
-	Mask     byte
-	OAM_Addr byte
-
+	Ctrl          byte
+	Mask          byte
 	buffer        []byte
 	vblank        bool
 	spriteZeroHit bool
@@ -95,18 +76,18 @@ type ppu struct {
 	Cycle int
 	Line  int
 
-	vram [0x2000]byte
-	oam  [0x100]byte
-
-	mmc mmc
+	oam [0x100]byte
+	bus bus
+	dma *dma
 
 	renderer Renderer
 }
 
-func NewPPU(mmc mmc, renderer Renderer) *ppu {
+func NewPPU(bus bus, dma *dma, renderer Renderer) *ppu {
 	return &ppu{
 		buffer:   make([]byte, 0, 2),
-		mmc:      mmc,
+		bus:      bus,
+		dma:      dma,
 		renderer: renderer,
 	}
 }
@@ -136,18 +117,22 @@ func (p *ppu) Tick() {
 			p.drawBG(p.Cycle, p.Line)
 		}
 	}
+	if p.Cycle < 256-8 && p.Line < 240-8 {
+		p.drawSprites(p.Cycle, p.Line)
+	}
 	//log.Printf("PPU Cycle:%d Line:%d\n", p.Cycle, p.Line)
 }
 
+func (p *ppu) isVisible() bool {
+	return p.Cycle < PPUVisibleWidth && p.Line < PPUVisibleHeight
+}
+
 func (p *ppu) drawBG(cycle, line int) {
+	if !p.isVisible() {
+		return
+	}
 	x := cycle
 	y := line
-	if x >= PPUVisibleWidth {
-		return
-	}
-	if y >= PPUVisibleHeight {
-		return
-	}
 	tileX, tileY := x/8, y/8
 	attrX, attrY := x/16, y/16
 	tileCharNum := p.getTileCharNumber(tileX, tileY)
@@ -158,6 +143,36 @@ func (p *ppu) drawBG(cycle, line int) {
 	for i := 0; i < len(pixels); i++ {
 		for j := 0; j < len(pixels[i]); j++ {
 			p.renderer.SetPixel(tileX*8+j, tileY*8+i, pixels[i][j])
+		}
+	}
+}
+
+func (p *ppu) drawSprites(cycle, line int) {
+	if !p.isVisible() {
+		return
+	}
+	x := cycle
+	y := line
+	for i := 0; i < len(p.oam); i += 4 {
+		spriteY := int(p.oam[i])
+		spriteX := int(p.oam[i+3])
+		if x == 0 || y == 0 || x != spriteX || y != spriteY {
+			continue
+		}
+		log.Printf("draw sprite: (%d, %d)", x, y)
+		spriteTile := p.oam[i+1]
+		spriteAttr := p.oam[i+2] & 0x3
+		p.drawSprite(x, y, spriteTile, spriteAttr)
+	}
+}
+
+func (p *ppu) drawSprite(x, y int, tile, attr byte) {
+	colors := p.getColors(int(attr), PPUAddressPaletteSprite)
+	char := p.getChar(int(tile))
+	pixels := p.toPixels(char, colors)
+	for i := 0; i < len(pixels); i++ {
+		for j := 0; j < len(pixels[i]); j++ {
+			p.renderer.SetPixel(x+j, y+i, pixels[i][j])
 		}
 	}
 }
@@ -178,7 +193,7 @@ func (p *ppu) toPixels(char []byte, colors []color.RGBA) [8][8]color.RGBA {
 func (p *ppu) getColors(paletteNumber int, baseAddr uint16) []color.RGBA {
 	res := make([]color.RGBA, 0, 4)
 	for i := 0; i < 4; i++ {
-		colorNum := p.get(baseAddr + uint16(paletteNumber*4+i))
+		colorNum := p.bus.Get(baseAddr + uint16(paletteNumber*4+i))
 		res = append(res, colors[int(colorNum)])
 	}
 	return res
@@ -186,12 +201,12 @@ func (p *ppu) getColors(paletteNumber int, baseAddr uint16) []color.RGBA {
 
 func (p *ppu) getTileCharNumber(tileX, tileY int) byte {
 	tileAddr := uint16((tileY*32 + tileX) + PPUAddressNameTable0)
-	return p.get(tileAddr)
+	return p.bus.Get(tileAddr)
 }
 
 func (p *ppu) getPaletteNumber(attrX, attrY, tileX, tileY int) int {
 	attrAddr := uint16((attrY*16 + attrX) + PPUAddressAttrTable0)
-	attr := p.get(attrAddr)
+	attr := p.bus.Get(attrAddr)
 	index := 0
 	if tileX%2 == 1 {
 		index |= 1
@@ -208,24 +223,9 @@ func (p *ppu) getChar(charNum int) []byte {
 	charAddr := uint16(charNum * 16)
 	char := make([]byte, 0, 16)
 	for i := uint16(0); i < 16; i++ {
-		char = append(char, p.get(charAddr+i))
+		char = append(char, p.bus.Get(charAddr+i))
 	}
 	return char
-}
-
-func (p *ppu) get(addr uint16) byte {
-	if addr < PPUAddressVRAM {
-		return p.mmc.Get(addr)
-	}
-	return p.vram[addr-PPUAddressVRAM]
-}
-
-func (p *ppu) set(addr uint16, value byte) {
-	if addr < PPUAddressVRAM {
-		p.mmc.Set(addr, value)
-		return
-	}
-	p.vram[addr-PPUAddressVRAM] = value
 }
 
 func (p *ppu) getAddr() uint16 {
@@ -240,12 +240,13 @@ func (p *ppu) setAddr(addr uint16) {
 }
 
 func (p *ppu) GetData() byte {
-	return p.get(p.getAddr())
+	return p.bus.Get(p.getAddr())
 }
 
 func (p *ppu) SetData(value byte) {
+	log.Printf("set data(%x)", value)
 	addr := p.getAddr()
-	p.set(addr, value)
+	p.bus.Set(addr, value)
 	if p.Ctrl&ctrlVRAMIncr == 1 {
 		addr += 32
 	} else {
@@ -282,6 +283,7 @@ func (p *ppu) SetScroll(v byte) {
 }
 
 func (p *ppu) SetAddr(v byte) {
+	log.Printf("set addr(%x), %v", v, p.buffer)
 	if len(p.buffer) >= 2 {
 		p.buffer = p.buffer[:0]
 	}
@@ -290,8 +292,7 @@ func (p *ppu) SetAddr(v byte) {
 
 func (p *ppu) SetDMA(v byte) {
 	cpuAddr := uint16(v) << 8
-	// oamAddr := uint16(p.OAM_Addr)
-	for i := 0; i < len(p.oam); i++ {
-		p.oam[i] = p.mmc.Get(cpuAddr + uint16(i))
-	}
+	log.Printf("dma(%x): %x", v, cpuAddr)
+	p.dma.Transfer(cpuAddr, p.oam[:])
+	log.Printf("copied %v", p.oam)
 }

@@ -1,6 +1,7 @@
 package main
 
 const (
+	MMC0AddressVRAM_Limit = 0x2000
 	MMC0AddressUnused     = 0x4020
 	MMC0AddressBatteryRAM = 0x6000
 	MMC0AddressPRG0       = 0x8000
@@ -10,8 +11,7 @@ const (
 )
 
 type mmc0 struct {
-	rom *rom
-
+	rom       *rom
 	bankAddr1 uint16
 	bankAddr2 uint16
 }
@@ -26,7 +26,7 @@ func NewMMC0(rom *rom) mmc {
 
 func (m *mmc0) Get(address uint16) byte {
 	switch {
-	case address < MMC_VRAM_Limit:
+	case address < MMC0AddressVRAM_Limit:
 		return m.rom.GetCHR(address)
 	case address < MMC0AddressBatteryRAM:
 		return 0
@@ -40,7 +40,7 @@ func (m *mmc0) Get(address uint16) byte {
 
 func (m *mmc0) Set(address uint16, value byte) {
 	switch {
-	case address < MMC_VRAM_Limit:
+	case address < MMC0AddressVRAM_Limit:
 		m.rom.SetCHR(address, value)
 	case address < MMC0AddressBatteryRAM:
 	case address < MMC0AddressPRG0:

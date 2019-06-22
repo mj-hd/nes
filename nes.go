@@ -1,11 +1,16 @@
 package main
 
 type NES struct {
-	CPU *cpu
-	PPU *ppu
-	APU *apu
-	MMC mmc
-	ROM *rom
+	CPU    *cpu
+	PPU    *ppu
+	APU    *apu
+	MMC    mmc
+	ROM    *rom
+	PPUBus bus
+	CPUBus bus
+
+	vram [0x2000]byte
+	wram [0x0800]byte
 }
 
 func NewNES(file string, renderer Renderer) (*NES, error) {
@@ -16,13 +21,21 @@ func NewNES(file string, renderer Renderer) (*NES, error) {
 		return nil, err
 	}
 	n.ROM = r
-	n.APU = &apu{}
-	n.MMC = NewMMC(r.Header.MapperNum, r)
-	n.PPU = NewPPU(n.MMC, renderer)
+	apu := &apu{}
+	n.APU = apu
+	mmc := NewMMC(r.Header.MapperNum, r)
+	n.MMC = mmc
+	ppuBus := NewPPUBus(n.vram[:], mmc)
+	dma := &dma{}
+	ppu := NewPPU(ppuBus, dma, renderer)
+	n.PPU = ppu
+	cpuBus := NewCPUBus(n.wram[:], ppu, apu, mmc)
+	dma.bus = cpuBus
 	n.CPU = &cpu{
 		MMC: n.MMC,
 		PPU: n.PPU,
 		APU: n.APU,
+		bus: cpuBus,
 	}
 	return n, nil
 }

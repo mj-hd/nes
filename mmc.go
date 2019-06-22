@@ -1,7 +1,5 @@
 package main
 
-const MMC_VRAM_Limit = 0x2000
-
 type mmc interface {
 	Get(uint16) byte
 	Set(uint16, byte)
